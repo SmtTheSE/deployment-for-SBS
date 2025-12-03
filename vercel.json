@@ -1,0 +1,19 @@
+{
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/mock" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Vercel-Mock-Mode",
+          "value": "true"
+        }
+      ]
+    }
+  ],
+  "env": {
+    "VITE_USE_MOCK": "true"
+  }
+}

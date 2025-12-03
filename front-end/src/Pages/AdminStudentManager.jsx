@@ -1,0 +1,1764 @@
+import React, { useState, useEffect } from "react";
+import {
+  Plus,
+  Save,
+  Edit,
+  X,
+  Eye,
+  EyeOff,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  Award,
+} from "lucide-react";
+import ModernDropdown from "../Components/ModernDropdown";
+import {
+  ModernForm,
+  FormGroup,
+  FormRow,
+  FormLabel,
+  FormInput,
+  FormSelect,
+  FormButton,
+  FormSection,
+} from "../Components/ModernForm";
+import CustomConfirmDialog from "../Components/CustomConfirmDialog";
+import { Link } from "react-router-dom";
+import AdminStudentCertificates from "../Components/AdminStudentCertificates";
+
+const AdminStudentManager = () => {
+  const [students, setStudents] = useState([]);
+  const [studentsWithCertificates, setStudentsWithCertificates] = useState(new Set()); // Track students with certificates
+  const [editingId, setEditingId] = useState(null);
+  const [editData, setEditData] = useState({});
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showCertificates, setShowCertificates] = useState(null);
+  const [createData, setCreateData] = useState({
+    studentId: "",
+    accountId: "",
+    firstName: "",
+    lastName: "",
+    dateOfBirth: "",
+    phone: "",
+    studentEmail: "",
+    homeAddress: "",
+    wardId: "",
+    wardName: "", // New ward name field
+    cityId: "",
+    cityName: "", // New city name field
+    streetAddress: "",
+    buildingName: "",
+    gender: 1,
+    nationality: "VN",
+    nationalId: "",
+    studyPlanId: "",
+    accountRole: "student",
+    accountStatus: 1,
+    password: "", // Add password field
+  });
+  const [cities, setCities] = useState([]);
+  const [wards, setWards] = useState([]);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [studentIdToDelete, setStudentIdToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false); // Add deleting state
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+
+  // Filter and search states
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterNationality, setFilterNationality] = useState("All");
+  const [filterGender, setFilterGender] = useState("All");
+  const [filterStatus, setFilterStatus] = useState("All");
+
+  // Convert cities to dropdown options
+  const cityOptions = cities.map((city) => ({
+    value: city.cityId,
+    label: city.cityName,
+  }));
+
+  // Convert wards to dropdown options
+  const wardOptions = wards.map((ward) => ({
+    value: ward.wardId,
+    label: ward.wardName,
+  }));
+
+  useEffect(() => {
+    fetchStudents();
+    fetchCities();
+    fetchWards();
+  }, []);
+
+  const fetchStudents = async () => {
+    try {
+      const response = await fetch("http://localhost:8080/api/admin/students", {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setStudents(data);
+      
+      // Check certificates for each student
+      const certPromises = data.map(student => checkStudentCertificates(student.studentId));
+      const certResults = await Promise.all(certPromises);
+      
+      // Update studentsWithCertificates set
+      const certSet = new Set();
+      data.forEach((student, index) => {
+        if (certResults[index]) {
+          certSet.add(student.studentId);
+        }
+      });
+      setStudentsWithCertificates(certSet);
+    } catch (error) {
+      console.error("Failed to fetch students:", error);
+    }
+  };
+
+  // Check if student has uploaded certificates
+  const checkStudentCertificates = async (studentId) => {
+    try {
+      const response = await fetch(
+        `http://localhost:8080/api/academic/certificates/student/${studentId}`,
+        {
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      
+      if (!response.ok) {
+        return false;
+      }
+      
+      const data = await response.json();
+      return data && data.length > 0;
+    } catch (error) {
+      console.error("Failed to check certificates:", error);
+      return false;
+    }
+  };
+
+  // Filter and search students
+  const getFilteredStudents = () => {
+    return students.filter((student) => {
+      // Search filter - check multiple fields
+      const matchesSearch =
+        student.studentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        `${student.firstName} ${student.lastName}`
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        student.studentEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (student.phone && student.phone.includes(searchTerm));
+
+      // Nationality filter
+      const matchesNationality =
+        filterNationality === "All" ||
+        student.nationality === filterNationality;
+
+      // Gender filter
+      const matchesGender =
+        filterGender === "All" || student.gender === parseInt(filterGender);
+
+      // Status filter
+      const studentStatus = student.loginAccount
+        ? student.loginAccount.accountStatus
+        : 0;
+      const matchesStatus =
+        filterStatus === "All" || studentStatus === parseInt(filterStatus);
+
+      return (
+        matchesSearch && matchesNationality && matchesGender && matchesStatus
+      );
+    });
+  };
+
+  // Get current students for pagination
+  const getCurrentStudents = () => {
+    const filteredStudents = getFilteredStudents();
+    const indexOfLastStudent = currentPage * itemsPerPage;
+    const indexOfFirstStudent = indexOfLastStudent - itemsPerPage;
+    return filteredStudents.slice(indexOfFirstStudent, indexOfLastStudent);
+  };
+
+  // Change page
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
+  // Previous page
+  const prevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  // Next page
+  const nextPage = () => {
+    const filteredStudents = getFilteredStudents();
+    const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const handleSearchChange = (event) => {
+    setSearchTerm(event.target.value);
+    setCurrentPage(1); // Reset to first page when search changes
+  };
+
+  const handleNationalityFilterChange = (event) => {
+    setFilterNationality(event.target.value);
+    setCurrentPage(1); // Reset to first page when filter changes
+  };
+
+  const handleGenderFilterChange = (event) => {
+    setFilterGender(event.target.value);
+    setCurrentPage(1); // Reset to first page when filter changes
+  };
+
+  const handleStatusFilterChange = (event) => {
+    setFilterStatus(event.target.value);
+    setCurrentPage(1); // Reset to first page when filter changes
+  };
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setFilterNationality("All");
+    setFilterGender("All");
+    setFilterStatus("All");
+    setCurrentPage(1);
+  };
+
+  const fetchCities = async () => {
+    try {
+      const response = await fetch(
+        "http://localhost:8080/api/admin/students/cities",
+        {
+          credentials: "include",
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setCities(data);
+    } catch (error) {
+      console.error("Failed to fetch cities:", error);
+      // Fallback to mock data if API fails
+      const mockCities = [
+        { cityId: "CITY001", cityName: "Ho Chi Minh City" },
+        { cityId: "CITY002", cityName: "Hanoi" },
+      ];
+      setCities(mockCities);
+    }
+  };
+
+  const fetchWards = async () => {
+    try {
+      const response = await fetch(
+        "http://localhost:8080/api/admin/students/wards",
+        {
+          credentials: "include",
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setWards(data);
+    } catch (error) {
+      console.error("Failed to fetch wards:", error);
+      // Fallback to mockdataif API fails
+      constmockWards = [
+        { wardId: "WARD001", wardName: "District 1" },
+        { wardId: "WARD002", wardName: "District 2" },
+      ];
+      setWards(mockWards);
+    }
+  };
+
+  const createNewStudent = async () => {
+    // Validation
+    if (
+      !createData.studentId ||
+      !createData.accountId ||
+      !createData.firstName ||
+      !createData.lastName ||
+      !createData.studentEmail
+    ) {
+      alert("Please fill in all required fields");
+      return;
+    }
+
+    try {
+      const response = await fetch("http://localhost:8080/api/admin/students", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...createData,
+          dateOfBirth: createData.dateOfBirth
+            ? new Date(createData.dateOfBirth).toISOString().split("T")[0]
+            : null,
+        }),
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        alert("Student created successfully!");
+
+        // Resetform
+        setCreateData({
+          studentId: "",
+          accountId: "",
+          firstName: "",
+          lastName: "",
+          dateOfBirth: "",
+          phone: "",
+          studentEmail: "",
+          homeAddress: "",
+          wardId: "",
+          wardName: "", // Reset ward name field
+          cityId: "",
+          cityName: "", // Reset city name field
+          streetAddress: "",
+          buildingName: "",
+          gender: 1,
+          nationality: "VN",
+          nationalId: "",
+          studyPlanId: "",
+          accountRole: "student",
+          accountStatus: 1,
+          password: "", // Reset password field
+        });
+        setShowCreateForm(false);
+        setCurrentPage(1); // Reset to first page
+        fetchStudents(); // Refresh the listfetchCities(); // Refresh cities list
+        fetchWards(); // Refresh wardslist
+      } else {
+        const errorText = await response.text();
+        console.error("Create failed:", errorText);
+        alert("Failedto create student: " + errorText);
+      }
+    } catch (error) {
+      console.error("Createerror:", error);
+      alert("Network error occurred whilecreating student");
+    }
+  };
+
+  const saveEdit = async () => {
+    try {
+      const student = students.find((s) => s.studentId === editingId);
+
+      const updateData = {
+        studentId: editingId,
+        accountId: student.loginAccount.accountId,
+        firstName: editData.firstName || student.firstName,
+        lastName: editData.lastName || student.lastName,
+        dateOfBirth: editData.dateOfBirth || student.dateOfBirth,
+        phone: editData.phone || student.phone,
+        studentEmail: editData.studentEmail || student.studentEmail,
+        homeAddress: editData.homeAddress || student.homeAddress,
+        wardId: editData.wardId || student.wardId,
+        wardName: editData.wardName || "", // Add ward name field
+        cityId: editData.cityId || student.cityId,
+        cityName: editData.cityName || "", // Add city name field
+        streetAddress: editData.streetAddress || student.streetAddress,
+        buildingName: editData.buildingName || student.buildingName,
+        gender:
+          editData.gender !== undefined ? editData.gender : student.gender,
+        nationality: editData.nationality || student.nationality,
+        nationalId: editData.nationalId || student.nationalId,
+        studyPlanId: editData.studyPlanId || student.studyPlanId,
+        accountRole: "student",
+        accountStatus:
+          editData.accountStatus !== undefined
+            ? editData.accountStatus
+            : student.loginAccount.accountStatus,
+        password: editData.password || "", // Add password field
+      };
+
+      const response = await fetch(
+        `http://localhost:8080/api/admin/students/${editingId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(updateData),
+          credentials: "include",
+        }
+      );
+
+      if (response.ok) {
+        alert("Student updated successfully!");
+        setEditingId(null);
+        setEditData({ ...editData, password: "" }); // Clear password field
+        fetchStudents(); // Refresh the list
+        fetchCities(); // Refresh cities list
+        fetchWards(); // Refreshwards list
+      } else {
+        const errorText = await response.text();
+        console.error("Updatefailed:", errorText);
+        alert("Failed to update student: " + errorText);
+      }
+    } catch (error) {
+      console.error("Update error:", error);
+      alert("Network error occurred while updatingstudent");
+    }
+  };
+
+  const deleteStudent = async (studentId) => {
+    setStudentIdToDelete(studentId);
+    setShowConfirmDialog(true);
+  };
+
+  const confirmDelete = async () => {
+    setDeleting(true); // Set deleting state
+    try {
+      const response = await fetch(
+        `http://localhost:8080/api/admin/students/${studentIdToDelete}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+
+      if (response.ok) {
+        alert("Student deleted successfully!");
+        // If we're on the last page and it becomes empty, go to previous page
+        const filteredStudents = getFilteredStudents();
+        const totalPages = Math.ceil(
+          (filteredStudents.length - 1) / itemsPerPage
+        );
+        if (currentPage > totalPages && totalPages > 0) {
+          setCurrentPage(totalPages);
+        }
+        fetchStudents(); // Refreshthe list
+      } else {
+        const errorText = await response.text();
+        console.error("Delete failed:", errorText);
+        alert("Failed to delete student: " + errorText);
+      }
+    } catch (error) {
+      console.error("Delete error:", error);
+      alert("Network error occurred while deleting student: " + error.message);
+    } finally {
+      setDeleting(false); // Reset deleting state
+      setShowConfirmDialog(false);
+      setStudentIdToDelete(null);
+    }
+  };
+
+  const cancelDelete = () => {
+    setShowConfirmDialog(false);
+    setStudentIdToDelete(null);
+  };
+
+  const toggleAccountStatus = async (student) => {
+    try {
+      const response = await fetch(
+        `http://localhost:8080/api/admin/students/${student.studentId}/toggle-status`,
+        {
+          method: "PUT",
+          credentials: "include",
+        }
+      );
+
+      if (response.ok) {
+        alert("Accountstatus updated successfully!");
+        fetchStudents(); // Refresh the list
+      } else {
+        const errorText = awaitresponse.text();
+        console.error("Togglefailed:", errorText);
+        alert("Failed to updateaccount status: " + errorText);
+      }
+    } catch (error) {
+      console.error("Toggle error:", error);
+      alert("Network error occurred while toggling account status");
+    }
+  };
+
+  const getGenderText = (gender) => {
+    switch (gender) {
+      case 1:
+        return "Male";
+      case 2:
+        return "Female";
+      default:
+        return "Other";
+    }
+  };
+
+  const getAccountStatusText = (status) => {
+    return status === 1 ? "Active" : "Inactive";
+  };
+
+  // Get current students
+  const currentStudents = getCurrentStudents();
+  const filteredStudents = getFilteredStudents();
+  const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
+
+  return (
+    <div className="xs:p-2 md:p-4 bg-gray-50 min-h-screen">
+      <div className="bg-white rounded-lg shadow-lg p-4">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-6 gap-3">
+          <div>
+            <h1 className="xs:text-lg md:text-3xl font-bold text-gray-800">
+              Admin Panel - Student Management
+            </h1>
+            <p className="text-gray-600 xs:text-xs md:text-xl">
+              Manage student accounts and personal information • Total:{" "}
+              {students.length}
+            </p>
+          </div>
+
+          <FormButton
+            variant="primary"
+            onClick={() => setShowCreateForm(!showCreateForm)}
+          >
+            <Plus size={20} />
+            <h1 className="xs:hidden md:block">
+              {showCreateForm ? "Cancel" : "Create New Student"}
+            </h1>
+          </FormButton>
+        </div>
+
+        {/* Search and Filter Section */}
+        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Search Input */}
+            <div className="lg:col-span-2 relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={handleSearchChange}
+                placeholder="Search by ID, name, email or phone..."
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              />
+            </div>
+
+            {/* Nationality Filter */}
+            <div>
+              <select
+                value={filterNationality}
+                onChange={handleNationalityFilterChange}
+                className="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              >
+                <option value="All">All Nationalities</option>
+                <option value="VN">Vietnam</option>
+                <option value="MM">Myanmar</option>
+              </select>
+            </div>
+
+            {/* Gender Filter */}
+            <div>
+              <select
+                value={filterGender}
+                onChange={handleGenderFilterChange}
+                className="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              >
+                <option value="All">All Genders</option>
+                <option value="1">Male</option>
+                <option value="2">Female</option>
+                <option value="0">Other</option>
+              </select>
+            </div>
+
+            {/* Status Filter */}
+            <div>
+              <select
+                value={filterStatus}
+                onChange={handleStatusFilterChange}
+                className="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              >
+                <option value="All">All Statuses</option>
+                <option value="1">Active</option>
+                <option value="0">Inactive</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Clear Filters Button */}
+          {(searchTerm ||
+            filterNationality !== "All" ||
+            filterGender !== "All" ||
+            filterStatus !== "All") && (
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={clearFilters}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Clear All Filters
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Create New StudentForm */}
+        {showCreateForm && (
+          // Modified to match Study Plans style
+          <div className="fixed inset-0 bg-opacity-0 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-bold text-gray-800">
+                    Create New Student
+                  </h3>
+                  <button
+                    onClick={() => setShowCreateForm(false)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+
+                <ModernForm>
+                  <FormSection title="Account Information">
+                    <FormRow>
+                      <FormGroup>
+                        <FormLabel required>Account ID</FormLabel>
+                        <FormInput
+                          type="text"
+                          value={createData.accountId}
+                          onChange={(e) =>
+                            setCreateData({
+                              ...createData,
+                              accountId: e.target.value,
+                            })
+                          }
+                          placeholder="e.g., ACC001"
+                        />
+                      </FormGroup>
+
+                      <FormGroup>
+                        <FormLabel required>Student ID</FormLabel>
+                        <FormInput
+                          type="text"
+                          value={createData.studentId}
+                          onChange={(e) =>
+                            setCreateData({
+                              ...createData,
+                              studentId: e.target.value,
+                            })
+                          }
+                          placeholder="e.g., STU001"
+                        />
+                      </FormGroup>
+                    </FormRow>
+
+                    <FormRow>
+                      <FormGroup>
+                        <FormLabel>Password</FormLabel>
+                        <FormInput
+                          type="password"
+                          value={createData.password}
+                          onChange={(e) =>
+                            setCreateData({
+                              ...createData,
+                              password: e.target.value,
+                            })
+                          }
+                          placeholder="Enter password"
+                        />
+                      </FormGroup>
+
+                      <FormGroup>
+                        <FormLabel>Account Status</FormLabel>
+                        <FormSelect
+                          value={createData.accountStatus}
+                          onChange={(e) =>
+                            setCreateData({
+                              ...createData,
+                              accountStatus: parseInt(e.target.value),
+                            })
+                          }
+                        >
+                          <option value={1}>Active</option>
+                          <option value={0}>Inactive</option>
+                        </FormSelect>
+                      </FormGroup>
+                    </FormRow>
+                  </FormSection>
+
+                  <FormSection title="Personal Information">
+                    <FormRow>
+                      <FormGroup>
+                        <FormLabel required>First Name</FormLabel>
+                        <FormInput
+                          type="text"
+                          value={createData.firstName}
+                          onChange={(e) =>
+                            setCreateData({
+                              ...createData,
+                              firstName: e.target.value,
+                            })
+                          }
+                          placeholder="First Name"
+                        />
+                      </FormGroup>
+
+                      <FormGroup>
+                        <FormLabel required>Last Name</FormLabel>
+                        <FormInput
+                          type="text"
+                          value={createData.lastName}
+                          onChange={(e) =>
+                            setCreateData({
+                              ...createData,
+                              lastName: e.target.value,
+                            })
+                          }
+                          placeholder="Last Name"
+                        />
+                      </FormGroup>
+                    </FormRow>
+
+                    <FormRow>
+                      <FormGroup>
+                        <FormLabel required>Email</FormLabel>
+                        <FormInput
+                          type="email"
+                          value={createData.studentEmail}
+                          onChange={(e) =>
+                            setCreateData({
+                              ...createData,
+                              studentEmail: e.target.value,
+                            })
+                          }
+                          placeholder="student@example.com"
+                        />
+                      </FormGroup>
+
+                      <FormGroup>
+                        <FormLabel>Phone</FormLabel>
+                        <FormInput
+                          type="text"
+                          value={createData.phone}
+                          onChange={(e) =>
+                            setCreateData({
+                              ...createData,
+                              phone: e.target.value,
+                            })
+                          }
+                          placeholder="0123456789"
+                        />
+                      </FormGroup>
+                    </FormRow>
+
+                    <FormRow>
+                      <FormGroup>
+                        <FormLabel>Date of Birth</FormLabel>
+                        <FormInput
+                          type="date"
+                          value={createData.dateOfBirth}
+                          onChange={(e) =>
+                            setCreateData({
+                              ...createData,
+                              dateOfBirth: e.target.value,
+                            })
+                          }
+                        />
+                      </FormGroup>
+
+                      <FormGroup>
+                        <FormLabel>Gender</FormLabel>
+                        <FormSelect
+                          value={createData.gender}
+                          onChange={(e) =>
+                            setCreateData({
+                              ...createData,
+                              gender: parseInt(e.target.value),
+                            })
+                          }
+                        >
+                          <option value={1}>Male</option>
+                          <option value={2}>Female</option>
+                          <option value={0}>Other</option>
+                        </FormSelect>
+                      </FormGroup>
+                    </FormRow>
+                  </FormSection>
+
+                  <FormSection title="Address Information">
+                    <FormGroup>
+                      <FormLabel>Home Address</FormLabel>
+                      <FormInput
+                        type="text"
+                        value={createData.homeAddress}
+                        onChange={(e) =>
+                          setCreateData({
+                            ...createData,
+                            homeAddress: e.target.value,
+                          })
+                        }
+                        placeholder="Home address"
+                      />
+                    </FormGroup>
+
+                    <FormRow>
+                      <FormGroup>
+                        <FormLabel>City</FormLabel>
+                        <ModernDropdown
+                          options={cityOptions}
+                          value={createData.cityId}
+                          onChange={(value) =>
+                            setCreateData({ ...createData, cityId: value })
+                          }
+                          placeholder="Select a city"
+                          searchable={true}
+                        />
+                      </FormGroup>
+
+                      <FormGroup>
+                        <FormLabel required>City Name</FormLabel>
+                        <FormInput
+                          type="text"
+                          value={createData.cityName}
+                          onChange={(e) =>
+                            setCreateData({
+                              ...createData,
+                              cityName: e.target.value,
+                            })
+                          }
+                          placeholder="Enter city name"
+                        />
+                      </FormGroup>
+                    </FormRow>
+
+                    <FormRow>
+                      <FormGroup>
+                        <FormLabel>Ward</FormLabel>
+                        <ModernDropdown
+                          options={wardOptions}
+                          value={createData.wardId}
+                          onChange={(value) =>
+                            setCreateData({ ...createData, wardId: value })
+                          }
+                          placeholder="Select a ward"
+                          searchable={true}
+                        />
+                      </FormGroup>
+
+                      <FormGroup>
+                        <FormLabel>Ward Name</FormLabel>
+                        <FormInput
+                          type="text"
+                          value={createData.wardName}
+                          onChange={(e) =>
+                            setCreateData({
+                              ...createData,
+                              wardName: e.target.value,
+                            })
+                          }
+                          placeholder="Enter ward name"
+                        />
+                      </FormGroup>
+                    </FormRow>
+
+                    <FormRow>
+                      <FormGroup>
+                        <FormLabel>Street Address</FormLabel>
+                        <FormInput
+                          type="text"
+                          value={createData.streetAddress}
+                          onChange={(e) =>
+                            setCreateData({
+                              ...createData,
+                              streetAddress: e.target.value,
+                            })
+                          }
+                          placeholder="Street address"
+                        />
+                      </FormGroup>
+
+                      <FormGroup>
+                        <FormLabel>Building Name</FormLabel>
+                        <FormInput
+                          type="text"
+                          value={createData.buildingName}
+                          onChange={(e) =>
+                            setCreateData({
+                              ...createData,
+                              buildingName: e.target.value,
+                            })
+                          }
+                          placeholder="Building name"
+                        />
+                      </FormGroup>
+                    </FormRow>
+                  </FormSection>
+
+                  <FormSection title="Additional Information">
+                    <FormRow>
+                      <FormGroup>
+                        <FormLabel>Nationality</FormLabel>
+                        <FormSelect
+                          value={createData.nationality}
+                          onChange={(e) =>
+                            setCreateData({
+                              ...createData,
+                              nationality: e.target.value,
+                            })
+                          }
+                        >
+                          <option value="VN">Vietnam</option>
+                          <option value="MM">Myanmar</option>
+                        </FormSelect>
+                      </FormGroup>
+
+                      {createData.nationality === "VN" && (
+                        <FormGroup>
+                          <FormLabel required>National ID</FormLabel>
+                          <FormInput
+                            type="text"
+                            value={createData.nationalId}
+                            onChange={(e) =>
+                              setCreateData({
+                                ...createData,
+                                nationalId: e.target.value,
+                              })
+                            }
+                            placeholder="National ID (required for Vietnamese students)"
+                          />
+                        </FormGroup>
+                      )}
+                    </FormRow>
+
+                    <FormGroup>
+                      <FormLabel>Study Plan ID</FormLabel>
+                      <FormInput
+                        type="text"
+                        value={createData.studyPlanId}
+                        onChange={(e) =>
+                          setCreateData({
+                            ...createData,
+                            studyPlanId: e.target.value,
+                          })
+                        }
+                        placeholder="Study plan ID"
+                      />
+                    </FormGroup>
+                  </FormSection>
+
+                  {/* Action Buttons */}
+                  <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 mt-6">
+                    <FormButton
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        setShowCreateForm(false);
+                        setCreateData({
+                          studentId: "",
+                          accountId: "",
+                          firstName: "",
+                          lastName: "",
+                          dateOfBirth: "",
+                          phone: "",
+                          studentEmail: "",
+                          homeAddress: "",
+                          wardId: "",
+                          wardName: "", // Reset ward name field
+                          cityId: "",
+                          cityName: "", // Reset city name field
+                          streetAddress: "",
+                          buildingName: "",
+                          gender: 1,
+                          nationality: "VN",
+                          nationalId: "",
+                          studyPlanId: "",
+                          accountRole: "student",
+                          accountStatus: 1,
+                          password: "", // Reset password field
+                        });
+                      }}
+                    >
+                      <X size={20} />
+                      Cancel
+                    </FormButton>
+
+                    <FormButton
+                      type="button"
+                      variant="success"
+                      onClick={createNewStudent}
+                    >
+                      <Save size={20} />
+                      Create Student
+                    </FormButton>
+                  </div>
+                </ModernForm>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Existing Students Management */}
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold text-gray-700 border-b-2 border-gray-200 pb-2">
+            Existing Students ({filteredStudents.length})
+          </h2>
+
+          {filteredStudents.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 rounded-lg">
+              <p className="text-gray-500 text-lg">
+                {searchTerm ||
+                filterNationality !== "All" ||
+                filterGender !== "All" ||
+                filterStatus !== "All"
+                  ? "No students match your search/filter criteria"
+                  : "No students yet"}
+              </p>
+              <p className="text-gray-400 text-sm mt-2">
+                {searchTerm ||
+                filterNationality !== "All" ||
+                filterGender !== "All" ||
+                filterStatus !== "All"
+                  ? "Try adjusting your search or filter criteria"
+                  : 'Click "Create New Student" to add your first student'}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto rounded-lg shadow xs:hidden md:block">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Student ID
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Name
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Email
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Phone
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Date of Birth
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Gender
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Nationality
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        City
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Account Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Certificates
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {currentStudents.map((student) => (
+                      <tr key={student.studentId} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {student.studentId}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {student.firstName} {student.lastName}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {student.studentEmail}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {student.phone}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {student.dateOfBirth}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {getGenderText(student.gender)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {student.nationality}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {student.cityId}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              student.loginAccount &&
+                              student.loginAccount.accountStatus === 1
+                                ? "bg-green-100 text-green-800"
+                                : "bg-gray-100 text-gray-800"
+                            }`}
+                          >
+                            {getAccountStatusText(
+                              student.loginAccount
+                                ? student.loginAccount.accountStatus
+                                : 0
+                            )}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {studentsWithCertificates.has(student.studentId) ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              Uploaded
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                              Not Uploaded
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <button
+                            onClick={() => setShowCertificates(student)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition-colors font-medium"
+                          >
+                            <Award size={16} />
+                            View
+                          </button>
+                        </td>
+
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => toggleAccountStatus(student)}
+                              className={`p-2 rounded-full ${
+                                student.loginAccount &&
+                                student.loginAccount.accountStatus === 1
+                                  ? "bg-red-100 text-red-600 hover:bg-red-200"
+                                  : "bg-green-100 text-green-600 hover:bg-green-200"
+                              }`}
+                              title={
+                                student.loginAccount &&
+                                student.loginAccount.accountStatus === 1
+                                  ? "Deactivate"
+                                  : "Activate"
+                              }
+                            >
+                              {student.loginAccount &&
+                              student.loginAccount.accountStatus === 1 ? (
+                                <EyeOff size={16} />
+                              ) : (
+                                <Eye size={16} />
+                              )}
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setEditingId(student.studentId);
+                                setEditData({
+                                  firstName: student.firstName,
+                                  lastName: student.lastName,
+                                  studentEmail: student.studentEmail,
+                                  phone: student.phone,
+                                  dateOfBirth: student.dateOfBirth,
+                                  homeAddress: student.homeAddress,
+                                  streetAddress: student.streetAddress,
+                                  buildingName: student.buildingName,
+                                  gender: student.gender,
+                                  nationality: student.nationality,
+                                  nationalId: student.nationalId,
+                                  studyPlanId: student.studyPlanId,
+                                  cityId: student.cityId || "",
+                                  cityName: "", // Initialize city name field
+                                  wardId: student.wardId || "",
+                                  wardName: "", // Initialize ward name field
+                                  password: "", // Initialize password field
+                                });
+                              }}
+                              className="p-2 bg-blue-100 text-blue-600 rounded-full hover:bg-blue-200"
+                              title="Edit"
+                            >
+                              <Edit size={16} />
+                            </button>
+
+                            <button
+                              onClick={() => deleteStudent(student.studentId)}
+                              disabled={deleting} // Disable button when deleting
+                              className={`p-2 rounded-full ${
+                                deleting
+                                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                  : "bg-red-100 text-red-600 hover:bg-red-200"
+                              }`}
+                              title="Delete"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 xs:block md:hidden">
+                {currentStudents.map((student) => (
+                  <div
+                    key={student.studentId}
+                    className="bg-white shadow rounded-xl p-5 flex flex-col justify-between hover:shadow-lg transition-shadow mb-3"
+                  >
+                    {/* Header */}
+                    <div className="flex justify-between items-center mb-3">
+                      <h2 className="text-lg font-semibold text-gray-800">
+                        {student.firstName} {student.lastName}
+                      </h2>
+                      <span
+                        className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          student.loginAccount &&
+                          student.loginAccount.accountStatus === 1
+                            ? "bg-green-100 text-green-700"
+                            : "bg-gray-100 text-gray-700"
+                        }`}
+                      >
+                        {getAccountStatusText(
+                          student.loginAccount
+                            ? student.loginAccount.accountStatus
+                            : 0
+                        )}
+                      </span>
+                    </div>
+
+                    {/* Body Info */}
+                    <div className="text-sm text-gray-600 space-y-1 mb-4">
+                      <p>
+                        <span className="font-medium">Student ID:</span>{" "}
+                        {student.studentId}
+                      </p>
+                      <p>
+                        <span className="font-medium">Email:</span>{" "}
+                        {student.studentEmail}
+                      </p>
+                      <p>
+                        <span className="font-medium">Phone:</span>{" "}
+                        {student.phone}
+                      </p>
+                      <p>
+                        <span className="font-medium">DOB:</span>{" "}
+                        {student.dateOfBirth}
+                      </p>
+                      <p>
+                        <span className="font-medium">Gender:</span>{" "}
+                        {getGenderText(student.gender)}
+                      </p>
+                      <p>
+                        <span className="font-medium">Nationality:</span>{" "}
+                        {student.nationality}
+                      </p>
+                      <p>
+                        <span className="font-medium">City:</span>{" "}
+                        {student.cityId}
+                      </p>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex justify-end space-x-2 border-t pt-3">
+                      <div className="mr-auto">
+                        {studentsWithCertificates.has(student.studentId) ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Uploaded
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            Not Uploaded
+                          </span>
+                        )}
+                        <button
+                          onClick={() => setShowCertificates(student)}
+                          className="ml-2 inline-flex items-center gap-1.5 px-3 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition-colors font-medium text-sm"
+                        >
+                          <Award size={16} />
+                          View
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={() => toggleAccountStatus(student)}
+                        className={`p-2 rounded-full transition ${
+                          student.loginAccount &&
+                          student.loginAccount.accountStatus === 1
+                            ? "bg-red-100 text-red-600 hover:bg-red-200"
+                            : "bg-green-100 text-green-600 hover:bg-green-200"
+                        }`}
+                        title={
+                          student.loginAccount &&
+                          student.loginAccount.accountStatus === 1
+                            ? "Deactivate"
+                            : "Activate"
+                        }
+                      >
+                        {student.loginAccount &&
+                        student.loginAccount.accountStatus === 1 ? (
+                          <EyeOff size={16} />
+                        ) : (
+                          <Eye size={16} />
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setEditingId(student.studentId);
+                          setEditData({
+                            firstName: student.firstName,
+                            lastName: student.lastName,
+                            studentEmail: student.studentEmail,
+                            phone: student.phone,
+                            dateOfBirth: student.dateOfBirth,
+                            homeAddress: student.homeAddress,
+                            streetAddress: student.streetAddress,
+                            buildingName: student.buildingName,
+                            gender: student.gender,
+                            nationality: student.nationality,
+                            nationalId: student.nationalId,
+                            studyPlanId: student.studyPlanId,
+                            cityId: student.cityId || "",
+                            cityName: "",
+                            wardId: student.wardId || "",
+                            wardName: "",
+                            password: "",
+                          });
+                        }}
+                        className="p-2 bg-blue-100 text-blue-600 rounded-full hover:bg-blue-200"
+                        title="Edit"
+                      >
+                        <Edit size={16} />
+                      </button>
+
+                      <button
+                        onClick={() => deleteStudent(student.studentId)}
+                        disabled={deleting}
+                        className={`p-2 rounded-full ${
+                          deleting
+                            ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                            : "bg-red-100 text-red-600 hover:bg-red-200"
+                        }`}
+                        title="Delete"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex justify-center mt-6">
+                  <nav className="flex items-center gap-2">
+                    <button
+                      onClick={prevPage}
+                      disabled={currentPage === 1}
+                      className={`flex items-center px-3 py-1 rounded-md ${
+                        currentPage === 1
+                          ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                    >
+                      <ChevronLeft size={16} />
+                      <span className="ml-1 xs:text-xs md:text-sm">
+                        Previous
+                      </span>
+                    </button>
+
+                    {[...Array(totalPages)].map((_, index) => {
+                      const pageNumber = index + 1;
+                      return (
+                        <button
+                          key={pageNumber}
+                          onClick={() => paginate(pageNumber)}
+                          className={`xs:w-5 xs:h-5 md:w-10 md:h-10 rounded-full ${
+                            currentPage === pageNumber
+                              ? "bg-blue-500 text-white"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          }`}
+                        >
+                          {pageNumber}
+                        </button>
+                      );
+                    })}
+
+                    <button
+                      onClick={nextPage}
+                      disabled={currentPage === totalPages}
+                      className={`flex items-center px-3 py-1 rounded-md ${
+                        currentPage === totalPages
+                          ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                    >
+                      <span className="mr-1 xs:text-xs md:text-sm">Next</span>
+                      <ChevronRight size={16} />
+                    </button>
+                  </nav>
+                </div>
+              )}
+            </>
+          )}
+          {/*Edit Modal */}
+          {editingId && (
+            // Modified to match Study Plans style
+            <div className="fixed inset-0 bg-opacity-0 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+                <div className="p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-bold text-gray-800">
+                      Edit Student
+                    </h3>
+                    <button
+                      onClick={() => setEditingId(null)}
+                      className="text-gray-500 hover:text-gray-700"
+                    >
+                      <X size={24} />
+                    </button>
+                  </div>
+
+                  <ModernForm>
+                    <FormRow>
+                      {/* Personal Information */}
+                      <div>
+                        <FormSection title="Personal Information">
+                          <FormGroup>
+                            <FormLabel>First Name</FormLabel>
+                            <FormInput
+                              type="text"
+                              value={editData.firstName || ""}
+                              onChange={(e) =>
+                                setEditData({
+                                  ...editData,
+                                  firstName: e.target.value,
+                                })
+                              }
+                            />
+                          </FormGroup>
+
+                          <FormGroup>
+                            <FormLabel>Last Name</FormLabel>
+                            <FormInput
+                              type="text"
+                              value={editData.lastName || ""}
+                              onChange={(e) =>
+                                setEditData({
+                                  ...editData,
+                                  lastName: e.target.value,
+                                })
+                              }
+                            />
+                          </FormGroup>
+
+                          <FormGroup>
+                            <FormLabel>Email</FormLabel>
+                            <FormInput
+                              type="email"
+                              value={editData.studentEmail || ""}
+                              onChange={(e) =>
+                                setEditData({
+                                  ...editData,
+                                  studentEmail: e.target.value,
+                                })
+                              }
+                            />
+                          </FormGroup>
+
+                          <FormGroup>
+                            <FormLabel>Phone</FormLabel>
+                            <FormInput
+                              type="text"
+                              value={editData.phone || ""}
+                              onChange={(e) =>
+                                setEditData({
+                                  ...editData,
+                                  phone: e.target.value,
+                                })
+                              }
+                            />
+                          </FormGroup>
+
+                          <FormGroup>
+                            <FormLabel>Date of Birth</FormLabel>
+                            <FormInput
+                              type="date"
+                              value={editData.dateOfBirth || ""}
+                              onChange={(e) =>
+                                setEditData({
+                                  ...editData,
+                                  dateOfBirth: e.target.value,
+                                })
+                              }
+                            />
+                          </FormGroup>
+
+                          <FormRow>
+                            <FormGroup>
+                              <FormLabel>Gender</FormLabel>
+                              <FormSelect
+                                value={
+                                  editData.gender !== undefined
+                                    ? editData.gender
+                                    : 1
+                                }
+                                onChange={(e) =>
+                                  setEditData({
+                                    ...editData,
+                                    gender: parseInt(e.target.value),
+                                  })
+                                }
+                              >
+                                <option value={1}>Male</option>
+                                <option value={2}>Female</option>
+                                <option value={0}>Other</option>
+                              </FormSelect>
+                            </FormGroup>
+
+                            <FormGroup>
+                              <FormLabel>Nationality</FormLabel>
+                              <FormSelect
+                                value={editData.nationality || "VN"}
+                                onChange={(e) =>
+                                  setEditData({
+                                    ...editData,
+                                    nationality: e.target.value,
+                                  })
+                                }
+                              >
+                                <option value="VN">Vietnam</option>
+                                <option value="MM">Myanmar</option>
+                              </FormSelect>
+                            </FormGroup>
+                          </FormRow>
+
+                          {editData.nationality === "VN" && (
+                            <FormGroup>
+                              <FormLabel>National ID</FormLabel>
+                              <FormInput
+                                type="text"
+                                value={editData.nationalId || ""}
+                                onChange={(e) =>
+                                  setEditData({
+                                    ...editData,
+                                    nationalId: e.target.value,
+                                  })
+                                }
+                              />
+                            </FormGroup>
+                          )}
+
+                          <FormGroup>
+                            <FormLabel>Study Plan ID</FormLabel>
+                            <FormInput
+                              type="text"
+                              value={editData.studyPlanId || ""}
+                              onChange={(e) =>
+                                setEditData({
+                                  ...editData,
+                                  studyPlanId: e.target.value,
+                                })
+                              }
+                            />
+                          </FormGroup>
+                        </FormSection>
+                      </div>
+
+                      {/* Address Information */}
+                      <div>
+                        <FormSection title="Address Information">
+                          <FormGroup>
+                            <FormLabel>Home Address</FormLabel>
+                            <FormInput
+                              type="text"
+                              value={editData.homeAddress || ""}
+                              onChange={(e) =>
+                                setEditData({
+                                  ...editData,
+                                  homeAddress: e.target.value,
+                                })
+                              }
+                            />
+                          </FormGroup>
+
+                          <FormGroup>
+                            <FormLabel>Street Address</FormLabel>
+                            <FormInput
+                              type="text"
+                              value={editData.streetAddress || ""}
+                              onChange={(e) =>
+                                setEditData({
+                                  ...editData,
+                                  streetAddress: e.target.value,
+                                })
+                              }
+                            />
+                          </FormGroup>
+
+                          <FormGroup>
+                            <FormLabel>Building Name</FormLabel>
+                            <FormInput
+                              type="text"
+                              value={editData.buildingName || ""}
+                              onChange={(e) =>
+                                setEditData({
+                                  ...editData,
+                                  buildingName: e.target.value,
+                                })
+                              }
+                            />
+                          </FormGroup>
+
+                          <FormRow>
+                            <FormGroup>
+                              <FormLabel>City</FormLabel>
+                              <ModernDropdown
+                                options={cityOptions}
+                                value={editData.cityId || ""}
+                                onChange={(value) =>
+                                  setEditData({ ...editData, cityId: value })
+                                }
+                                placeholder="Select a city"
+                                searchable={true}
+                              />
+                            </FormGroup>
+
+                            <FormGroup>
+                              <FormLabel>City Name</FormLabel>
+                              <FormInput
+                                type="text"
+                                value={editData.cityName || ""}
+                                onChange={(e) =>
+                                  setEditData({
+                                    ...editData,
+                                    cityName: e.target.value,
+                                  })
+                                }
+                              />
+                            </FormGroup>
+                          </FormRow>
+
+                          <FormRow>
+                            <FormGroup>
+                              <FormLabel>Ward</FormLabel>
+                              <ModernDropdown
+                                options={wardOptions}
+                                value={editData.wardId || ""}
+                                onChange={(value) =>
+                                  setEditData({ ...editData, wardId: value })
+                                }
+                                placeholder="Select a ward"
+                                searchable={true}
+                              />
+                            </FormGroup>
+
+                            <FormGroup>
+                              <FormLabel>Ward Name</FormLabel>
+                              <FormInput
+                                type="text"
+                                value={editData.wardName || ""}
+                                onChange={(e) =>
+                                  setEditData({
+                                    ...editData,
+                                    wardName: e.target.value,
+                                  })
+                                }
+                              />
+                            </FormGroup>
+                          </FormRow>
+
+                          {/* Account Information */}
+                          <FormSection title="Account Information">
+                            <FormGroup>
+                              <FormLabel>Account Status</FormLabel>
+                              <FormSelect
+                                value={editData.accountStatus || 1}
+                                onChange={(e) =>
+                                  setEditData({
+                                    ...editData,
+                                    accountStatus: parseInt(e.target.value),
+                                  })
+                                }
+                              >
+                                <option value={1}>Active</option>
+                                <option value={0}>Inactive</option>
+                              </FormSelect>
+                            </FormGroup>
+
+                            <FormGroup>
+                              <FormLabel>
+                                Password (leave blank to keep current)
+                              </FormLabel>
+                              <FormInput
+                                type="password"
+                                value={editData.password || ""}
+                                onChange={(e) =>
+                                  setEditData({
+                                    ...editData,
+                                    password: e.target.value,
+                                  })
+                                }
+                                placeholder="Enter new password"
+                              />
+                            </FormGroup>
+                          </FormSection>
+                        </FormSection>
+                      </div>
+                    </FormRow>
+
+                    <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 mt-6">
+                      <FormButton
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setEditingId(null)}
+                      >
+                        Cancel
+                      </FormButton>
+
+                      <FormButton
+                        type="button"
+                        variant="success"
+                        onClick={saveEdit}
+                      >
+                        Save Changes
+                      </FormButton>
+                    </div>
+                  </ModernForm>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 삭제 확인对话框 */}
+        <CustomConfirmDialog
+          isOpen={showConfirmDialog}
+          onClose={cancelDelete}
+          onConfirm={confirmDelete}
+          title="Confirm Delete"
+          message="Are you sure you want to delete this student? This action cannot be undone."
+          confirmText="Delete"
+          cancelText="Cancel"
+          isDeleting={deleting} // 传递删除状态
+        />
+        
+        {/* Certificates Modal */}
+        {showCertificates && (
+          <AdminStudentCertificates 
+            student={showCertificates} 
+            onClose={() => setShowCertificates(null)} 
+          />
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default AdminStudentManager;
