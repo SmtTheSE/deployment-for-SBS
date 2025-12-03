@@ -52,7 +52,7 @@ const SideBar = () => {
           id: 3,
           name: "Attendances",
           icon: faListCheck,
-          link: "/attendence",
+          link: "/attendance",
           isCurrent: false,
         },
       ],
