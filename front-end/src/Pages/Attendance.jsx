@@ -721,13 +721,10 @@ const ClassScheduleCalendar = ({ classSchedules }) => {
 };
 
 const Attendance = () => {
-  const [attendanceLogs, setAttendanceLogs] = useState([]);
+  // Removed attendanceLogs state since we're removing Attendance Logs section
   const [classSchedules, setClassSchedules] = useState([]);
-  const [rates, setRates] = useState({
-    studentRate: 0,
-    teacherRate: 91, // Keep static or fetch from another API
-  });
-  const [chartData, setChartData] = useState([]);
+  // Removed rates state since we're removing Attendance Rate section
+  // Removed chartData state since we're removing Attendance Hours section
   const navigate = useNavigate();
 
   // Pagination states for class schedules
@@ -750,68 +747,24 @@ const Attendance = () => {
 
     // For guest or mock mode, use mock data
     if (isGuest || !token) {
-      fetchMockAttendanceData();
-      fetchMockAttendanceSummary();
       fetchMockClassSchedules();
     } else {
       axios
         .get("/profile")
         .then((res) => {
           const studentId = res.data.studentId;
-          fetchAttendanceData(studentId, token);
-          fetchAttendanceSummary(studentId, token);
           fetchClassSchedules(studentId, token);
         })
         .catch(() => {
           // Fallback to mock data on error
-          fetchMockAttendanceData();
-          fetchMockAttendanceSummary();
           fetchMockClassSchedules();
         });
     }
   }, []);
 
-  const fetchMockAttendanceData = () => {
-    try {
-      const mockLogs = [
-        {
-          date: '2025-01-15',
-          checkIn: '09:00',
-          checkOut: '11:00',
-          status: 1, // present
-          note: '',
-          courseName: 'Introduction to Computer Science'
-        },
-        {
-          date: '2025-01-16',
-          checkIn: '14:00',
-          checkOut: '16:00',
-          status: 1, // present
-          note: '',
-          courseName: 'Calculus II'
-        },
-        {
-          date: '2025-01-17',
-          checkIn: '',
-          checkOut: '',
-          status: 0, // absent
-          note: 'Sick leave',
-          courseName: 'English Composition'
-        }
-      ];
-
-      setAttendanceLogs(mockLogs);
-
-      // Process data for the chart
-      processChartData(mockLogs);
-    } catch (error) {
-      console.error("Failed to fetch mock attendance data:", error);
-      setAttendanceLogs([]);
-    }
-  };
-
   const fetchMockClassSchedules = () => {
     try {
+      // Hardcoded class schedule data as requested
       const mockSchedules = [
         {
           classScheduleId: 1,
@@ -821,7 +774,7 @@ const Attendance = () => {
           endTime: '11:00',
           durationMinutes: 120,
           room: 'Room 101',
-          courseName: 'Introduction to Computer Science',
+          courseName: 'Hospitality Operations',
           lecturerName: 'Dr. Smith'
         },
         {
@@ -832,7 +785,7 @@ const Attendance = () => {
           endTime: '16:00',
           durationMinutes: 120,
           room: 'Room 205',
-          courseName: 'Calculus II',
+          courseName: 'Food and Beverage Industry',
           lecturerName: 'Prof. Johnson'
         },
         {
@@ -843,7 +796,161 @@ const Attendance = () => {
           endTime: '12:00',
           durationMinutes: 120,
           room: 'Room 301',
-          courseName: 'English Composition',
+          courseName: 'Customer Service Excellence',
+          lecturerName: 'Dr. Williams'
+        },
+        {
+          classScheduleId: 4,
+          classDate: '2025-02-06',
+          dayOfWeek: 'THURSDAY',
+          startTime: '09:00',
+          endTime: '11:00',
+          durationMinutes: 120,
+          room: 'Room 105',
+          courseName: 'Tourism Marketing',
+          lecturerName: 'Dr. Brown'
+        },
+        {
+          classScheduleId: 5,
+          classDate: '2025-02-07',
+          dayOfWeek: 'TUESDAY',
+          startTime: '13:00',
+          endTime: '15:00',
+          durationMinutes: 120,
+          room: 'Room 201',
+          courseName: 'Event Management',
+          lecturerName: 'Prof. Davis'
+        },
+        {
+          classScheduleId: 6,
+          classDate: '2025-02-10',
+          dayOfWeek: 'MONDAY',
+          startTime: '09:00',
+          endTime: '11:00',
+          durationMinutes: 120,
+          room: 'Room 101',
+          courseName: 'Customer Service Excellence',
+          lecturerName: 'Dr. Williams'
+        },
+        {
+          classScheduleId: 7,
+          classDate: '2025-02-12',
+          dayOfWeek: 'WEDNESDAY',
+          startTime: '14:00',
+          endTime: '16:00',
+          durationMinutes: 120,
+          room: 'Room 205',
+          courseName: 'Food and Beverage Industry',
+          lecturerName: 'Prof. Johnson'
+        },
+        {
+          classScheduleId: 8,
+          classDate: '2025-02-13',
+          dayOfWeek: 'THURSDAY',
+          startTime: '09:00',
+          endTime: '11:00',
+          durationMinutes: 120,
+          room: 'Room 105',
+          courseName: 'Hospitality Operations',
+          lecturerName: 'Dr. Smith'
+        },
+        {
+          classScheduleId: 9,
+          classDate: '2025-02-14',
+          dayOfWeek: 'FRIDAY',
+          startTime: '10:00',
+          endTime: '12:00',
+          durationMinutes: 120,
+          room: 'Room 301',
+          courseName: 'Hospitality Operations',
+          lecturerName: 'Dr. Smith'
+        },
+        {
+          classScheduleId: 10,
+          classDate: '2025-02-17',
+          dayOfWeek: 'MONDAY',
+          startTime: '09:00',
+          endTime: '11:00',
+          durationMinutes: 120,
+          room: 'Room 101',
+          courseName: 'Customer Service Excellence',
+          lecturerName: 'Dr. Williams'
+        },
+        {
+          classScheduleId: 11,
+          classDate: '2025-02-19',
+          dayOfWeek: 'WEDNESDAY',
+          startTime: '14:00',
+          endTime: '16:00',
+          durationMinutes: 120,
+          room: 'Room 205',
+          courseName: 'Food and Beverage Industry',
+          lecturerName: 'Prof. Johnson'
+        },
+        {
+          classScheduleId: 12,
+          classDate: '2025-02-20',
+          dayOfWeek: 'THURSDAY',
+          startTime: '09:00',
+          endTime: '11:00',
+          durationMinutes: 120,
+          room: 'Room 105',
+          courseName: 'Tourism Marketing',
+          lecturerName: 'Dr. Brown'
+        },
+        {
+          classScheduleId: 13,
+          classDate: '2025-02-21',
+          dayOfWeek: 'FRIDAY',
+          startTime: '10:00',
+          endTime: '12:00',
+          durationMinutes: 120,
+          room: 'Room 301',
+          courseName: 'Event Management',
+          lecturerName: 'Prof. Davis'
+        },
+        {
+          classScheduleId: 14,
+          classDate: '2025-02-24',
+          dayOfWeek: 'MONDAY',
+          startTime: '09:00',
+          endTime: '11:00',
+          durationMinutes: 120,
+          room: 'Room 101',
+          courseName: 'Hospitality Operations',
+          lecturerName: 'Dr. Smith'
+        },
+        {
+          classScheduleId: 15,
+          classDate: '2025-02-26',
+          dayOfWeek: 'WEDNESDAY',
+          startTime: '14:00',
+          endTime: '16:00',
+          durationMinutes: 120,
+          room: 'Room 205',
+          courseName: 'Food and Beverage Industry',
+          lecturerName: 'Prof. Johnson'
+        },
+        {
+          classScheduleId: 16,
+          classDate: '2025-02-27',
+          dayOfWeek: 'THURSDAY',
+          startTime: '09:00',
+          endTime: '11:00',
+          durationMinutes: 120,
+          room: 'Room 105',
+          courseName: 'Tourism Marketing',
+          lecturerName: 'Dr. Brown'
+        },
+        {
+          classScheduleId: 17,
+          classDate: '2025-02-28',
+          dayOfWeek: 'FRIDAY',
+          startTime: '10:00',
+          endTime: '12:00',
+          durationMinutes: 120,
+          room: 'Room 301',
+          courseName: 'Customer Service Excellence',
           lecturerName: 'Dr. Williams'
         }
       ];
@@ -856,32 +963,10 @@ const Attendance = () => {
     }
   };
 
-  const fetchMockAttendanceSummary = () => {
-    try {
-      setRates((prev) => ({
-        ...prev,
-        studentRate: 83
-      }));
-    } catch (error) {
-      console.error("Failed to fetch mock attendance summary:", error);
-      setRates((prev) => ({ ...prev, studentRate: 0 }));
-    }
-  };
-
   // Reset to first page when classSchedules changes
   useEffect(() => {
     setCurrentPage(1);
   }, [classSchedules]);
-
-  const fetchAttendanceData = async (studentId, token) => {
-    try {
-      // In a real implementation, you would fetch this data from the API
-      fetchMockAttendanceData();
-    } catch (error) {
-      console.error("Failed to fetch attendance data:", error);
-      fetchMockAttendanceData();
-    }
-  };
 
   const fetchClassSchedules = async (studentId, token) => {
     try {
@@ -890,74 +975,6 @@ const Attendance = () => {
     } catch (error) {
       console.error("Failed to fetch class schedules:", error);
       fetchMockClassSchedules();
-    }
-  };
-
-  // Process attendance data for the stacked bar chart
-  const processChartData = (logs) => {
-    // Group by course name
-    const courseData = {};
-
-    logs.forEach((log) => {
-      const courseName = log.courseName || "Unknown Course";
-      if (!courseData[courseName]) {
-        courseData[courseName] = {
-          present: 0,
-          absent: 0,
-          absentWithPermission: 0,
-        };
-      }
-
-      // Calculate actual hours based on check-in/check-out times
-      let hours = 0;
-      if (log.checkIn && log.checkOut) {
-        const checkInTime = new Date(`1970-01-01T${log.checkIn}`);
-        const checkOutTime = new Date(`1970-01-01T${log.checkOut}`);
-
-        // Handle case where checkout is next day (e.g. checkIn: 23:00, checkOut: 01:00)
-        if (checkOutTime < checkInTime) {
-          checkOutTime.setDate(checkOutTime.getDate() + 1);
-        }
-
-        const timeDiff = checkOutTime - checkInTime;
-        hours = timeDiff / (1000 * 60 * 60); // Convert milliseconds to hours
-
-        // Use actual calculated hours without rounding to specific decimal points
-        // This will preserve the real numbers as they are calculated
-      } else {
-        // If no check-in/check-out times, default to 1 hour
-        hours = 1;
-      }
-
-      // Add hours to appropriate category
-      if (log.status === 1) {
-        courseData[courseName].present += hours;
-      } else if (log.status === 0) {
-        courseData[courseName].absent += hours;
-      } else if (log.status === 2) {
-        courseData[courseName].absentWithPermission += hours;
-      }
-    });
-
-    // Convert to array format for the chart, keeping actual calculated values
-    const chartData = Object.entries(courseData).map(([course, data]) => ({
-      course,
-      present: data.present, // Keep actual calculated values
-      absent: data.absent, // Keep actual calculated values
-      absentWithPermission: data.absentWithPermission, // Keep actual calculated values
-      total: data.present + data.absent + data.absentWithPermission,
-    }));
-
-    setChartData(chartData);
-  };
-
-  const fetchAttendanceSummary = async (studentId, token) => {
-    try {
-      // In a real implementation, you would fetch this data from the API
-      fetchMockAttendanceSummary();
-    } catch (error) {
-      console.error("Failed to fetch attendance summary:", error);
-      fetchMockAttendanceSummary();
     }
   };
 
@@ -1019,264 +1036,129 @@ const Attendance = () => {
           </div>
         </div>
 
-        {/* Class Schedule Information and Attendance Hours - Moved below calendar */}
-        <div className="flex flex-col lg:flex-row justify-between items-stretch gap-5">
-          {/* Left Side - Class Schedule Information */}
-          <div className="w-full lg:w-2/3">
-            {/* Class Schedule Information */}
-            <div className="bg-white p-5 rounded-md shadow-lg transition-all duration-300 hover:shadow-xl">
-              <h1 className="text-font text-3xl mb-5">
-                Class Schedule for the Semester
-              </h1>
-              <p className="mb-4 text-gray-600">
-                This calendar shows all your scheduled classes for the entire
-                semester.
-              </p>
+        {/* Class Schedule Information - Only section left */}
+        <div className="bg-white p-5 rounded-md shadow-lg transition-all duration-300 hover:shadow-xl">
+          <h1 className="text-font text-3xl mb-5">
+            Class Schedule for the Semester
+          </h1>
+          <p className="mb-4 text-gray-600">
+            This calendar shows all your scheduled classes for the entire
+            semester.
+          </p>
 
-              {/* Course Schedule Table */}
-              <div
-                className={`overflow-x-auto transition-opacity duration-150 ${
-                  isAnimating ? "opacity-0" : "opacity-100"
-                }`}
-              >
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Course
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Day
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Time
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Room
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Lecturer
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {getPaginatedSchedules().length > 0 ? (
-                      getPaginatedSchedules().map((schedule) => (
-                        <tr
-                          key={schedule.classScheduleId}
-                          className="hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
-                          onClick={() => {
-                            // Convert string date to Date object for popup
-                            const date = new Date(schedule.classDate);
-                            const schedules = [schedule];
-                            setSelectedDay(date);
-                            setDaySchedules(schedules);
-                          }}
-                        >
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div
-                                className={`w-3 h-3 ${getCourseColor(
-                                  schedule.courseName
-                                )} rounded-full mr-3`}
-                              ></div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {schedule.courseName}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {schedule.dayOfWeek}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {schedule.startTime} - {schedule.endTime}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {schedule.room}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {schedule.lecturerName}
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td
-                          colSpan="5"
-                          className="px-6 py-4 text-center text-gray-500"
-                        >
-                          No class schedules available
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pagination Controls */}
-              {getTotalPages() > 1 && (
-                <div className="flex justify-between items-center mt-4">
-                  <button
-                    onClick={handlePrevPage}
-                    disabled={currentPage === 1}
-                    className={`px-4 py-2 rounded-md ${
-                      currentPage === 1
-                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    } transition-colors duration-200`}
-                  >
-                    Previous
-                  </button>
-
-                  <span className="text-gray-600">
-                    Page {currentPage} of {getTotalPages()}
-                  </span>
-
-                  <button
-                    onClick={handleNextPage}
-                    disabled={currentPage === getTotalPages()}
-                    className={`px-4 py-2 rounded-md ${
-                      currentPage === getTotalPages()
-                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    } transition-colors duration-200`}
-                  >
-                    Next
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right Side - Attendance Summary */}
-          <div className="w-full lg:w-1/3 flex flex-col gap-5">
-            {/* Attendance Rate Circles */}
-            <div className="bg-white p-5 rounded-md shadow-lg transition-all duration-300 hover:shadow-xl">
-              <h1 className="text-font text-3xl mb-5">Attendance Rate</h1>
-              <div className="flex justify-around items-center">
-                <DualCircularProgress
-                  percentage={rates.studentRate}
-                  size={150}
-                  strokeWidth={12}
-                  innerStrokeColor="#e0e0e0"
-                  middleStrokeColor="#4caf50"
-                  outerStrokeColor="#2196f3"
-                  showPercent={true}
-                  fontSize="24px"
-                />
-              </div>
-              <div className="text-center mt-4">
-                <p className="text-gray-600">Your Attendance Rate</p>
-              </div>
-            </div>
-
-            {/* Attendance Hours Bar Chart */}
-            <div className="bg-white p-5 rounded-md shadow-lg transition-all duration-300 hover:shadow-xl">
-              <div className="flex justify-between items-center mb-5">
-                <h1 className="text-font text-2xl">Attendance Hours</h1>
-                <button
-                  onClick={() =>
-                    setAttendanceHoursTheme(
-                      attendanceHoursTheme === "light" ? "dark" : "light"
-                    )
-                  }
-                  className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-                  title="Toggle theme"
-                >
-                  <FontAwesomeIcon icon={faBars} />
-                </button>
-              </div>
-              <div className="h-80">
-                <StackedBarChart
-                  data={chartData}
-                  theme={attendanceHoursTheme}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Attendance Logs Section */}
-        <div className="bg-white p-5 rounded-md shadow-lg w-full transition-all duration-300 hover:shadow-xl">
-          <h1 className="text-font text-3xl mb-5">Attendance Logs</h1>
-          <div className="overflow-x-auto">
+          {/* Course Schedule Table */}
+          <div
+            className={`overflow-x-auto transition-opacity duration-150 ${
+              isAnimating ? "opacity-0" : "opacity-100"
+            }`}
+          >
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Course
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Check-In
+                    Day
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Check-Out
+                    Time
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
+                    Room
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Note
+                    Lecturer
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {attendanceLogs.length > 0 ? (
-                  attendanceLogs.map((log, index) => (
+                {getPaginatedSchedules().length > 0 ? (
+                  getPaginatedSchedules().map((schedule) => (
                     <tr
-                      key={index}
-                      className="hover:bg-gray-50 transition-colors duration-150"
+                      key={schedule.classScheduleId}
+                      className="hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+                      onClick={() => {
+                        // Convert string date to Date object for popup
+                        const date = new Date(schedule.classDate);
+                        const schedules = [schedule];
+                        // We can't access the state setters from ClassScheduleCalendar here
+                        // So we'll just scroll to the top for now
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
                     >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {log.date}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {log.courseName}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {log.checkIn || "-"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {log.checkOut || "-"}
-                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            log.status === 1
-                              ? "bg-green-100 text-green-800"
-                              : log.status === 0
-                              ? "bg-red-100 text-red-800"
-                              : "bg-yellow-100 text-yellow-800"
-                          }`}
-                        >
-                          {log.status === 1
-                            ? "Present"
-                            : log.status === 0
-                            ? "Absent"
-                            : "Absent with Permission"}
-                        </span>
+                        <div className="flex items-center">
+                          <div
+                            className={`w-3 h-3 ${getCourseColor(
+                              schedule.courseName
+                            )} rounded-full mr-3`}
+                          ></div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {schedule.courseName}
+                          </div>
+                        </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {log.note || "-"}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {schedule.dayOfWeek}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {schedule.startTime} - {schedule.endTime}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {schedule.room}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {schedule.lecturerName}
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
                     <td
-                      colSpan="6"
+                      colSpan="5"
                       className="px-6 py-4 text-center text-gray-500"
                     >
-                      No attendance logs available
+                      No class schedules available
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {getTotalPages() > 1 && (
+            <div className="flex justify-between items-center mt-4">
+              <button
+                onClick={handlePrevPage}
+                disabled={currentPage === 1}
+                className={`px-4 py-2 rounded-md ${
+                  currentPage === 1
+                    ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                } transition-colors duration-200`}
+              >
+                Previous
+              </button>
+
+              <span className="text-gray-600">
+                Page {currentPage} of {getTotalPages()}
+              </span>
+
+              <button
+                onClick={handleNextPage}
+                disabled={currentPage === getTotalPages()}
+                className={`px-4 py-2 rounded-md ${
+                  currentPage === getTotalPages()
+                    ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                } transition-colors duration-200`}
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       </Container>
     </section>

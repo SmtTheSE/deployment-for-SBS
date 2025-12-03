@@ -21,6 +21,23 @@ import { useNavigate } from "react-router-dom";
 import { useProfileImage } from "../utils/profileImageContext";
 import CustomSuccessDialog from "../Components/CustomSuccessDialog";
 
+// Hardcoded fallback data
+const fallbackProfileData = {
+  name: "John Doe",
+  studentId: "S12345678",
+  email: "john.doe@example.com",
+  pathway: "Computer Science",
+};
+
+const fallbackPaymentStatus = 1; // Completed
+const fallbackTotalCredits = 45;
+
+const fallbackDeadlines = [
+  { id: 1, name: "Math Assignment", deadline: "15 Dec 2025" },
+  { id: 2, name: "Physics Project", deadline: "22 Dec 2025" },
+  { id: 3, name: "Chemistry Quiz", deadline: "30 Dec 2025" },
+];
+
 const ProfilePage = () => {
   const [profile, setProfile] = useState(null);
   const [generalInfo, setGeneralInfo] = useState({
@@ -45,7 +62,13 @@ const ProfilePage = () => {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
-      navigate("/login");
+      // Use fallback data for guests
+      setProfile(fallbackProfileData);
+      setGeneralInfo({
+        paymentStatus: fallbackPaymentStatus,
+        totalCredits: fallbackTotalCredits,
+      });
+      setUpcomingDeadlines(fallbackDeadlines);
       return;
     }
 
@@ -58,10 +81,22 @@ const ProfilePage = () => {
         // Fetch profile image when profile data is loaded
         fetchProfileImage(res.data.studentId);
       })
-      .catch(() => navigate("/login"));
+      .catch((error) => {
+        console.error("Error fetching profile:", error);
+        // Use fallback data on error
+        setProfile(fallbackProfileData);
+        setGeneralInfo({
+          paymentStatus: fallbackPaymentStatus,
+          totalCredits: fallbackTotalCredits,
+        });
+        setUpcomingDeadlines(fallbackDeadlines);
+      });
   }, []);
 
   const fetchProfileImage = (studentId) => {
+    const token = localStorage.getItem("token");
+    if (!token) return; // Skip image fetch for guests
+    
     axiosInstance
       .get(`/account/profile/${studentId}/image`)
       .then((res) => {
@@ -236,6 +271,9 @@ const ProfilePage = () => {
   };
 
   const fetchGeneralInfo = (studentId) => {
+    const token = localStorage.getItem("token");
+    if (!token) return; // Skip for guests since we use fallback data
+    
     axiosInstance
       .get(`/tuition-payments/student/${studentId}`)
       .then((res) => {
@@ -255,6 +293,9 @@ const ProfilePage = () => {
   };
 
   const fetchAssignmentDeadlines = (studentId) => {
+    const token = localStorage.getItem("token");
+    if (!token) return; // Skip for guests since we use fallback data
+    
     axiosInstance
       .get(`/academic/study-plan-courses/student/${studentId}`)
       .then((res) => {
@@ -268,7 +309,7 @@ const ProfilePage = () => {
         setUpcomingDeadlines(deadlines);
         setDeadlinesCurrentPage(1); // Reset to first page when data changes
       })
-      .catch(() => setUpcomingDeadlines([]));
+      .catch(() => setUpcomingDeadlines(fallbackDeadlines)); // Use fallback data on error
   };
 
   // Pagination functions for upcoming deadlines
