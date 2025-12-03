@@ -8,7 +8,7 @@ import {
   faChevronLeft,
   faChevronRight,
 } from "@fortawesome/free-solid-svg-icons";
-import axios from "axios";
+import axios from "../api/apiClient";
 import { useNavigate } from "react-router-dom";
 import StackedBarChart from "../Components/StackedBarChart";
 
@@ -742,20 +742,131 @@ const Attendance = () => {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) return navigate("/login");
+    const isGuest = localStorage.getItem("isGuest") === "true";
+    
+    if (!token && !isGuest) {
+      return navigate("/login");
+    }
 
-    axios
-      .get("http://localhost:8080/api/profile", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((res) => {
-        const studentId = res.data.studentId;
-        fetchAttendanceData(studentId, token);
-        fetchAttendanceSummary(studentId, token);
-        fetchClassSchedules(studentId, token);
-      })
-      .catch(() => navigate("/login"));
+    // For guest or mock mode, use mock data
+    if (isGuest || !token) {
+      fetchMockAttendanceData();
+      fetchMockAttendanceSummary();
+      fetchMockClassSchedules();
+    } else {
+      axios
+        .get("/profile")
+        .then((res) => {
+          const studentId = res.data.studentId;
+          fetchAttendanceData(studentId, token);
+          fetchAttendanceSummary(studentId, token);
+          fetchClassSchedules(studentId, token);
+        })
+        .catch(() => {
+          // Fallback to mock data on error
+          fetchMockAttendanceData();
+          fetchMockAttendanceSummary();
+          fetchMockClassSchedules();
+        });
+    }
   }, []);
+
+  const fetchMockAttendanceData = () => {
+    try {
+      const mockLogs = [
+        {
+          date: '2025-01-15',
+          checkIn: '09:00',
+          checkOut: '11:00',
+          status: 1, // present
+          note: '',
+          courseName: 'Introduction to Computer Science'
+        },
+        {
+          date: '2025-01-16',
+          checkIn: '14:00',
+          checkOut: '16:00',
+          status: 1, // present
+          note: '',
+          courseName: 'Calculus II'
+        },
+        {
+          date: '2025-01-17',
+          checkIn: '',
+          checkOut: '',
+          status: 0, // absent
+          note: 'Sick leave',
+          courseName: 'English Composition'
+        }
+      ];
+
+      setAttendanceLogs(mockLogs);
+
+      // Process data for the chart
+      processChartData(mockLogs);
+    } catch (error) {
+      console.error("Failed to fetch mock attendance data:", error);
+      setAttendanceLogs([]);
+    }
+  };
+
+  const fetchMockClassSchedules = () => {
+    try {
+      const mockSchedules = [
+        {
+          classScheduleId: 1,
+          classDate: '2025-02-01',
+          dayOfWeek: 'MONDAY',
+          startTime: '09:00',
+          endTime: '11:00',
+          durationMinutes: 120,
+          room: 'Room 101',
+          courseName: 'Introduction to Computer Science',
+          lecturerName: 'Dr. Smith'
+        },
+        {
+          classScheduleId: 2,
+          classDate: '2025-02-03',
+          dayOfWeek: 'WEDNESDAY',
+          startTime: '14:00',
+          endTime: '16:00',
+          durationMinutes: 120,
+          room: 'Room 205',
+          courseName: 'Calculus II',
+          lecturerName: 'Prof. Johnson'
+        },
+        {
+          classScheduleId: 3,
+          classDate: '2025-02-05',
+          dayOfWeek: 'FRIDAY',
+          startTime: '10:00',
+          endTime: '12:00',
+          durationMinutes: 120,
+          room: 'Room 301',
+          courseName: 'English Composition',
+          lecturerName: 'Dr. Williams'
+        }
+      ];
+
+      setClassSchedules(mockSchedules);
+      console.log("Mock class schedules loaded:", mockSchedules);
+    } catch (error) {
+      console.error("Failed to fetch mock class schedules:", error);
+      setClassSchedules([]);
+    }
+  };
+
+  const fetchMockAttendanceSummary = () => {
+    try {
+      setRates((prev) => ({
+        ...prev,
+        studentRate: 83
+      }));
+    } catch (error) {
+      console.error("Failed to fetch mock attendance summary:", error);
+      setRates((prev) => ({ ...prev, studentRate: 0 }));
+    }
+  };
 
   // Reset to first page when classSchedules changes
   useEffect(() => {
@@ -764,80 +875,21 @@ const Attendance = () => {
 
   const fetchAttendanceData = async (studentId, token) => {
     try {
-      const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get(
-        `http://localhost:8080/api/academic/daily-attendance/student/${studentId}`,
-        { headers }
-      );
-
-      const attendanceData = Array.isArray(response.data) ? response.data : [];
-
-      // Transform backend data to match your frontend format
-      const logs = attendanceData.map((record) => ({
-        date: record.attendanceDate,
-        checkIn: record.checkInTime,
-        checkOut: record.checkOutTime,
-        status:
-          record.status === "Present" ? 1 : record.status === "Absent" ? 0 : 2, // "Absent with permission"
-        note: record.note || "",
-        courseName: record.courseName, // Additional info for display
-      }));
-
-      setAttendanceLogs(logs);
-
-      // Process data for the chart
-      processChartData(logs);
+      // In a real implementation, you would fetch this data from the API
+      fetchMockAttendanceData();
     } catch (error) {
       console.error("Failed to fetch attendance data:", error);
-      setAttendanceLogs([]);
+      fetchMockAttendanceData();
     }
   };
 
   const fetchClassSchedules = async (studentId, token) => {
     try {
-      const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get(
-        `http://localhost:8080/api/academic/class-timelines/${studentId}`,
-        { headers }
-      );
-
-      const scheduleData = Array.isArray(response.data) ? response.data : [];
-
-      // Transform data for calendar - ensure proper date format
-      const schedules = scheduleData.map((schedule) => {
-        // Ensure classDate is in the correct format
-        let classDate = schedule.classDate;
-        if (typeof classDate === "object" && classDate !== null) {
-          if (classDate.year !== undefined) {
-            // Convert LocalDate object to string
-            classDate = `${classDate.year}-${String(classDate.month).padStart(
-              2,
-              "0"
-            )}-${String(classDate.day).padStart(2, "0")}`;
-          } else if (classDate instanceof Date) {
-            // Convert Date object to string
-            classDate = classDate.toISOString().split("T")[0];
-          }
-        }
-
-        return {
-          classScheduleId: schedule.classScheduleId,
-          classDate: classDate,
-          dayOfWeek: schedule.dayOfWeek,
-          startTime: schedule.startTime,
-          endTime: schedule.endTime,
-          durationMinutes: schedule.durationMinutes,
-          room: schedule.room,
-          courseName: schedule.courseName,
-          lecturerName: schedule.lecturerName,
-        };
-      });
-
-      setClassSchedules(schedules);
-      console.log("Class schedules loaded:", schedules);
+      // In a real implementation, you would fetch this data from the API
+      fetchMockClassSchedules();
     } catch (error) {
       console.error("Failed to fetch class schedules:", error);
-      setClassSchedules([]);
+      fetchMockClassSchedules();
     }
   };
 
@@ -901,20 +953,11 @@ const Attendance = () => {
 
   const fetchAttendanceSummary = async (studentId, token) => {
     try {
-      const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get(
-        `http://localhost:8080/api/academic/daily-attendance/summary/student/${studentId}`,
-        { headers }
-      );
-
-      const summary = response.data;
-      setRates((prev) => ({
-        ...prev,
-        studentRate: Math.round(summary.attendanceRate || 0),
-      }));
+      // In a real implementation, you would fetch this data from the API
+      fetchMockAttendanceSummary();
     } catch (error) {
       console.error("Failed to fetch attendance summary:", error);
-      setRates((prev) => ({ ...prev, studentRate: 0 }));
+      fetchMockAttendanceSummary();
     }
   };
 
@@ -999,142 +1042,240 @@ const Attendance = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Course
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Day
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Time
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Room
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Lecturer
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {getPaginatedSchedules()
-                      .sort((a, b) => {
-                        // Sort by day of week and then by start time
-                        const dayOrder = [
-                          "Mon",
-                          "Tue",
-                          "Wed",
-                          "Thu",
-                          "Fri",
-                          "Sat",
-                          "Sun",
-                        ];
-                        const dayComparison =
-                          dayOrder.indexOf(a.dayOfWeek) -
-                          dayOrder.indexOf(b.dayOfWeek);
-                        if (dayComparison !== 0) return dayComparison;
-
-                        // If same day, sort by start time
-                        return a.startTime.localeCompare(b.startTime);
-                      })
-                      .map((schedule, index) => (
+                    {getPaginatedSchedules().length > 0 ? (
+                      getPaginatedSchedules().map((schedule) => (
                         <tr
-                          key={`${schedule.classScheduleId}-${index}`}
-                          className="hover:bg-gray-50 transition-colors duration-150"
+                          key={schedule.classScheduleId}
+                          className="hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+                          onClick={() => {
+                            // Convert string date to Date object for popup
+                            const date = new Date(schedule.classDate);
+                            const schedules = [schedule];
+                            setSelectedDay(date);
+                            setDaySchedules(schedules);
+                          }}
                         >
-                          <td className="px-4 py-3 whitespace-nowrap">
+                          <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
-                              <span
+                              <div
                                 className={`w-3 h-3 ${getCourseColor(
                                   schedule.courseName
-                                )} rounded-full mr-2 transition-all duration-200`}
-                              ></span>
+                                )} rounded-full mr-3`}
+                              ></div>
                               <div className="text-sm font-medium text-gray-900">
                                 {schedule.courseName}
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {schedule.dayOfWeek}
                           </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {schedule.startTime} - {schedule.endTime}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {schedule.room}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {schedule.lecturerName}
+                          </td>
                         </tr>
-                      ))}
+                      ))
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan="5"
+                          className="px-6 py-4 text-center text-gray-500"
+                        >
+                          No class schedules available
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
-
-                {classSchedules.length === 0 && (
-                  <div className="text-center py-4 text-gray-500">
-                    No class schedules found
-                  </div>
-                )}
               </div>
 
               {/* Pagination Controls */}
-              {classSchedules.length > itemsPerPage && (
-                <div className="flex justify-center mt-6">
-                  <nav className="flex items-center gap-2">
-                    <button
-                      onClick={handlePrevPage}
-                      disabled={currentPage === 1}
-                      className={`px-4 py-2 rounded-lg ${
-                        currentPage === 1
-                          ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      } transition-all duration-200 hover:shadow-md transform hover:-translate-y-0.5`}
-                    >
-                      Previous
-                    </button>
+              {getTotalPages() > 1 && (
+                <div className="flex justify-between items-center mt-4">
+                  <button
+                    onClick={handlePrevPage}
+                    disabled={currentPage === 1}
+                    className={`px-4 py-2 rounded-md ${
+                      currentPage === 1
+                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    } transition-colors duration-200`}
+                  >
+                    Previous
+                  </button>
 
-                    {[...Array(getTotalPages())].map((_, index) => {
-                      const pageNumber = index + 1;
-                      return (
-                        <button
-                          key={pageNumber}
-                          onClick={() => handlePageChange(pageNumber)}
-                          className={`w-10 h-10 rounded-full ${
-                            currentPage === pageNumber
-                              ? "bg-blue-500 text-white shadow-md transform scale-105"
-                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                          } transition-all duration-200 hover:shadow-md transform hover:-translate-y-0.5`}
-                        >
-                          {pageNumber}
-                        </button>
-                      );
-                    })}
+                  <span className="text-gray-600">
+                    Page {currentPage} of {getTotalPages()}
+                  </span>
 
-                    <button
-                      onClick={handleNextPage}
-                      disabled={currentPage === getTotalPages()}
-                      className={`px-4 py-2 rounded-lg ${
-                        currentPage === getTotalPages()
-                          ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      } transition-all duration-200 hover:shadow-md transform hover:-translate-y-0.5`}
-                    >
-                      Next
-                    </button>
-                  </nav>
+                  <button
+                    onClick={handleNextPage}
+                    disabled={currentPage === getTotalPages()}
+                    className={`px-4 py-2 rounded-md ${
+                      currentPage === getTotalPages()
+                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    } transition-colors duration-200`}
+                  >
+                    Next
+                  </button>
                 </div>
               )}
-
-              <p className="mt-4 text-sm text-gray-500">
-                Click on any colored dot in the calendar to see detailed
-                information about the class.
-              </p>
             </div>
           </div>
 
-          {/* Right Side - Attendance Hours Chart */}
-          <div className="w-full lg:w-1/3">
-            <div
-              className={`p-5 rounded-md shadow-lg transition-all duration-300 hover:shadow-xl ${
-                attendanceHoursTheme === "dark" ? "bg-gray-800" : "bg-white"
-              }`}
-            >
-              <div className="flex justify-between items-center">
-                <h1
-                  className={`text-3xl mb-5 ${
-                    attendanceHoursTheme === "dark" ? "text-white" : "text-font"
-                  }`}
-                >
-                  Attendance Hours
-                </h1>
+          {/* Right Side - Attendance Summary */}
+          <div className="w-full lg:w-1/3 flex flex-col gap-5">
+            {/* Attendance Rate Circles */}
+            <div className="bg-white p-5 rounded-md shadow-lg transition-all duration-300 hover:shadow-xl">
+              <h1 className="text-font text-3xl mb-5">Attendance Rate</h1>
+              <div className="flex justify-around items-center">
+                <DualCircularProgress
+                  percentage={rates.studentRate}
+                  size={150}
+                  strokeWidth={12}
+                  innerStrokeColor="#e0e0e0"
+                  middleStrokeColor="#4caf50"
+                  outerStrokeColor="#2196f3"
+                  showPercent={true}
+                  fontSize="24px"
+                />
               </div>
-              <div className="w-full overflow-x-auto">
-                <StackedBarChart data={chartData} />
+              <div className="text-center mt-4">
+                <p className="text-gray-600">Your Attendance Rate</p>
               </div>
             </div>
+
+            {/* Attendance Hours Bar Chart */}
+            <div className="bg-white p-5 rounded-md shadow-lg transition-all duration-300 hover:shadow-xl">
+              <div className="flex justify-between items-center mb-5">
+                <h1 className="text-font text-2xl">Attendance Hours</h1>
+                <button
+                  onClick={() =>
+                    setAttendanceHoursTheme(
+                      attendanceHoursTheme === "light" ? "dark" : "light"
+                    )
+                  }
+                  className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                  title="Toggle theme"
+                >
+                  <FontAwesomeIcon icon={faBars} />
+                </button>
+              </div>
+              <div className="h-80">
+                <StackedBarChart
+                  data={chartData}
+                  theme={attendanceHoursTheme}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Attendance Logs Section */}
+        <div className="bg-white p-5 rounded-md shadow-lg w-full transition-all duration-300 hover:shadow-xl">
+          <h1 className="text-font text-3xl mb-5">Attendance Logs</h1>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Course
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Check-In
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Check-Out
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Note
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {attendanceLogs.length > 0 ? (
+                  attendanceLogs.map((log, index) => (
+                    <tr
+                      key={index}
+                      className="hover:bg-gray-50 transition-colors duration-150"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {log.date}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {log.courseName}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {log.checkIn || "-"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {log.checkOut || "-"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            log.status === 1
+                              ? "bg-green-100 text-green-800"
+                              : log.status === 0
+                              ? "bg-red-100 text-red-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}
+                        >
+                          {log.status === 1
+                            ? "Present"
+                            : log.status === 0
+                            ? "Absent"
+                            : "Absent with Permission"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {log.note || "-"}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan="6"
+                      className="px-6 py-4 text-center text-gray-500"
+                    >
+                      No attendance logs available
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </Container>

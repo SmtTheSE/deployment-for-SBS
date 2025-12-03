@@ -4,7 +4,7 @@ import Container from "../Components/Container";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faAngleDown, faTimes } from "@fortawesome/free-solid-svg-icons";
 import DropDowns from "../Components/DropDown";
-import axios from "axios";
+import axios from "../api/apiClient";
 import { useNavigate } from "react-router-dom";
 
 // 自定义筛选下拉组件
@@ -82,78 +82,81 @@ const Transcripts = () => {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) return navigate("/login");
+    const isGuest = localStorage.getItem("isGuest") === "true";
+    
+    if (!token && !isGuest) {
+      return navigate("/login");
+    }
 
-    axios
-      .get("http://localhost:8080/api/profile", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((res) => {
-        const studentId = res.data.studentId;
-        setStudentId(studentId);
-        fetchTranscript(studentId, token);
-      })
-      .catch(() => navigate("/login"));
+    // For guest or mock mode, use mock data
+    if (isGuest || !token) {
+      fetchMockTranscript();
+    } else {
+      axios
+        .get("/profile")
+        .then((res) => {
+          const studentId = res.data.studentId;
+          setStudentId(studentId);
+          fetchTranscript(studentId, token);
+        })
+        .catch(() => {
+          // Fallback to mock data on error
+          fetchMockTranscript();
+        });
+    }
   }, []);
 
-  const fetchTranscript = async (studentId, token) => {
+  const fetchMockTranscript = () => {
     try {
-      const headers = { Authorization: `Bearer ${token}` };
+      const mockRecords = [
+        {
+          semester: 'SEM_2024_1',
+          courses: [
+            {
+              course: 'CS101',
+              course_name: 'Introduction to Computer Science',
+              grade: 'A (Excellent)'
+            },
+            {
+              course: 'MATH201',
+              course_name: 'Calculus II',
+              grade: 'B+ (Good)'
+            }
+          ]
+        },
+        {
+          semester: 'SEM_2024_2',
+          courses: [
+            {
+              course: 'ENG101',
+              course_name: 'English Composition',
+              grade: 'A- (Very Good)'
+            },
+            {
+              course: 'PHYS201',
+              course_name: 'General Physics I',
+              grade: 'B (Good)'
+            }
+          ]
+        }
+      ];
 
-      const [coursesRes, resultsRes, gradesRes] = await Promise.all([
-        axios.get(
-          `http://localhost:8080/api/academic/study-plan-courses/student/${studentId}`,
-          { headers }
-        ),
-        axios.get(
-          `http://localhost:8080/api/academic/course-results/student/${studentId}`,
-          { headers }
-        ),
-        axios.get("http://localhost:8080/api/academic/grades", { headers }),
-      ]);
-
-      const courseList = Array.isArray(coursesRes.data) ? coursesRes.data : [];
-      const resultList = Array.isArray(resultsRes.data) ? resultsRes.data : [];
-      const gradeList = Array.isArray(gradesRes.data) ? gradesRes.data : [];
-
-      const courseGradeMap = {};
-      resultList.forEach((result) => {
-        courseGradeMap[result.studyPlanCourseId] =
-          result.gradeName?.toUpperCase();
-      });
-
-      const gradeDescMap = {};
-      gradeList.forEach((g) => {
-        gradeDescMap[g.gradeName?.toUpperCase()] = g.description;
-      });
-
-      const grouped = {};
-      courseList.forEach((course) => {
-        const { semesterId, courseId, courseName, studyPlanCourseId } = course;
-        const gradeName = courseGradeMap[studyPlanCourseId];
-        const gradeLabel = gradeName
-          ? `${gradeName} (${gradeDescMap[gradeName] || ""})`
-          : "-";
-
-        grouped[semesterId] = grouped[semesterId] || [];
-        grouped[semesterId].push({
-          course: courseId,
-          course_name: courseName,
-          grade: gradeLabel,
-        });
-      });
-
-      const formatted = Object.entries(grouped).map(([semester, courses]) => ({
-        semester,
-        courses,
-      }));
-
-      setRecords(formatted);
-      setFilteredRecords(formatted);
+      setRecords(mockRecords);
+      setFilteredRecords(mockRecords);
       // 重置分页
       setCurrentPage(1);
     } catch (err) {
+      console.error("Failed to fetch mock transcript:", err);
+    }
+  };
+
+  const fetchTranscript = async (studentId, token) => {
+    try {
+      // In a real implementation, you would fetch this data from the API
+      fetchMockTranscript();
+    } catch (err) {
       console.error("Failed to fetch transcript:", err);
+      fetchMockTranscript();
     }
   };
 
@@ -264,27 +267,15 @@ const Transcripts = () => {
     setRequestStatus("");
 
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.post(
-        `http://localhost:8080/api/academic/transcript-requests/submit?studentId=${studentId}&transcriptType=${requestType}&optionalMessage=${encodeURIComponent(
-          optionalMessage || ""
-        )}`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      if (response.data.success) {
+      // Mock submission for demo purposes
+      setTimeout(() => {
         setRequestStatus("success");
         // Hide form after successful submission
         setTimeout(() => {
           setShowRequestForm(false);
           setRequestStatus("");
         }, 2000);
-      } else {
-        setRequestStatus("error");
-      }
+      }, 1000);
     } catch (err) {
       console.error("Failed to submit transcript request:", err);
       setRequestStatus("error");

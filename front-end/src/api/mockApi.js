@@ -41,6 +41,53 @@ export class MockApiService {
   static async get(endpoint) {
     await delay(300);
     
+    // For student-related endpoints
+    if (endpoint.includes('/api/profile')) {
+      // Return student profile data
+      return mockData.mockStudents[0]; // John Doe as default student
+    }
+    
+    if (endpoint.includes('/api/academic/study-plan-courses/student')) {
+      // Return study plan for student
+      return mockData.mockStudyPlans;
+    }
+    
+    if (endpoint.includes('/api/academic/course-results/student')) {
+      // Return course results for student
+      return []; // Empty for now
+    }
+    
+    if (endpoint.includes('/api/academic/course-results/total-credits')) {
+      // Return total credits
+      return 14; // Sample total credits
+    }
+    
+    if (endpoint.includes('/api/academic/class-timelines')) {
+      // Return class schedules
+      return mockData.mockClassSchedules;
+    }
+    
+    if (endpoint.includes('/api/academic/daily-attendance/student')) {
+      // Return attendance logs
+      return mockData.mockAttendanceLogs;
+    }
+    
+    if (endpoint.includes('/api/academic/daily-attendance/summary/student')) {
+      // Return attendance summary
+      return mockData.mockAttendanceSummary;
+    }
+    
+    if (endpoint.includes('/api/academic/grades')) {
+      // Return grade information
+      return [
+        { gradeName: 'A', description: 'Excellent' },
+        { gradeName: 'B+', description: 'Good' },
+        { gradeName: 'B', description: 'Good' },
+        { gradeName: 'A-', description: 'Very Good' }
+      ];
+    }
+    
+    // General endpoints
     switch (endpoint) {
       case '/api/courses':
         return mockData.mockCourses;
