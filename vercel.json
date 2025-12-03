@@ -1,6 +1,8 @@
 {
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/mock" }
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/mock" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ],
   "headers": [
     {
